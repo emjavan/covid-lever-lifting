@@ -6,6 +6,124 @@ library(gmodels) # needed for ci()
 library(scales) # needed for muted() in ggplot
 options(warn=-1) # suppress all the warnings from ci()
 
+
+
+get_total_inf_R0_less_1 = function(data_path){
+  load(data_path)
+  path_split=unlist(str_split(data_path, "_"))
+  initial_R0=as.double(path_split[3])
+  increase_R0=as.double(path_split[5])
+  R0_final = initial_R0 + increase_R0
+  init_inf = as.double(path_split[4])
+  # get the max number of days in a simulation
+  max_num_days=max(sapply(sims, function(x) length(x$Total_Infections) ))
+  days = seq(1, max_num_days, 1)
+  init_R0_vect = rep(initial_R0, max_num_days)
+  incr_R0_vect = rep(increase_R0, max_num_days)
+  final_R0_vect = rep(R0_final, max_num_days)
+  init_inf_vect = rep(init_inf, max_num_days)
+  # put final R0 on end of all sims that end before the longest sim
+  total_R0_mat = sapply(sims, function(x){
+    vect_len=length(x$R0)
+    return(c(x$R0, rep(R0_final, (max_num_days - vect_len))))
+  })
+  R0 = apply(total_R0_mat, 1, function(x) mean(x) )
+  
+  # put zeros on end of all sims that end before the longest sim
+  total_inf_mat = sapply(sims, function(x){
+    vect_len=length(x$Total_Infections)
+    return(c(x$Total_Infections, rep(0, (max_num_days - vect_len))))
+  })
+  summary_stats_inf = apply(total_inf_mat, 1, function(x) ci(x) )
+  total_inf_df = as.data.frame(t(summary_stats_inf))
+  
+  # put zeros on end of all sims that end before the longest sim
+  total_det_mat = sapply(sims, function(x){
+    vect_len=length(x$New_Detections)
+    return(c(x$New_Detections, rep(0, (max_num_days - vect_len))))
+  })
+  summary_stats_det = apply(total_det_mat, 1, function(x) ci(x) )
+  total_det_df = as.data.frame(t(summary_stats_det))
+  
+  full_df = cbind(init_inf_vect, init_R0_vect, incr_R0_vect, final_R0_vect, 
+                  days, R0, total_inf_df, total_det_df)
+  names(full_df) = c("Init_Inf", "Init_R0", "Increase_by_R0", "R0_Final", "Days", "R0_by_day", 
+                     "Inf_Mean", "Inf_LwrCI", "Inf_UprCI", "Inf_StdErr", 
+                     "Det_Mean", "Det_LwrCI", "Det_UprCI", "Det_StdErr")
+  
+  return(full_df)
+} # end function get_total_inf_R0_less_1
+
+
+
+
+
+
+
+
+
+# Plot mean infected and detected cases through time, can easily be adapted for other metrics
+plot_through_time = function(df, R0, init_infected, increase){
+  sub_df = df[df$Init_R0==R0 & df$Init_Inf==init_infected,] # subset df to get correct info
+  increase=rev(increase) # reverse order of labels
+  label_vect=sapply(increase, function(x) paste0(R0, "+", x) ) # make labels for legend
+  
+  # mean infected through time plot
+  inf_plot=sub_df %>% # mutate is to change plotting order so longest vector doesn't cover shortest
+    mutate(R0_Final = forcats::fct_reorder(factor(R0_Final), desc(R0_Final))) %>%
+    ggplot( aes(x=Days, y=Inf_Mean)) +
+    scale_colour_grey(name="R0+Increase", labels = label_vect)+
+    geom_line(aes(color=R0_Final), size=1)+
+    ylab("Mean Ciruclating Infected")+
+    labs(title=paste0("Sims initialized with ", init_infected, " infected"))+
+    theme_bw(base_size = 8)+
+    theme(legend.position = c(0.8, 0.7))
+  png(file=paste0("figures/",init_infected, "_circ_inf_through_time.png"),
+      width=4.25,height=3.25, units = "in", res=1200)
+  print(inf_plot)
+  dev.off()
+  
+  # mean detected through time plot
+  mutate_df=sub_df %>% # mutate is to change plotting order so longest vector doesn't cover shortest
+    mutate(R0_Final = forcats::fct_reorder(factor(R0_Final), desc(R0_Final)))
+  det_plot=ggplot(mutate_df %>% 
+                    arrange(R0_Final), # need to use arrange to change point order
+                  aes(x=Days, y=Det_Mean, color=R0_Final)) +
+    scale_colour_grey(name="R0+Increase", labels = label_vect)+
+    geom_point(size=0.5)+
+    ylab("Mean Detected Daily")+
+    labs(title=paste0("Sims initialized with ", init_infected, " infected"))+
+    theme_bw(base_size = 8)+
+    theme(legend.position = c(0.8, 0.7))
+  png(file=paste0("figures/",init_infected, "_daily_det_through_time.png"),
+      width=4.25,height=3.25, units = "in", res=1200)
+  print(det_plot)
+  dev.off()
+  
+  
+  
+  fin_R0_vect=unique(sub_df$R0_Final)
+  inf_end_day = sapply(fin_R0_vect, function(x){
+    sub_sub_df = sub_df[sub_df$R0_Final==x,]
+    max_day = max(sub_sub_df$Days)
+    return(max_day)
+  })
+  return(inf_end_day)
+} # end plot_through_time
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Get the cumulative infected and peak to lift metrics for heat map
 get_cum_inf_lift = function(data_path){
   load(data_path)
   print( data_path )
@@ -15,9 +133,8 @@ get_cum_inf_lift = function(data_path){
   increase_R0=as.double(path_split[5])
   # apply lift data functions to list of all sims
   cum_inf_lift_df = sapply(sims, function(x){ 
-    #print("#########################################################################################")
     # Series of if-else statements to determine the appropriate lift day
-    if(increase_R0 == 0){
+    if(increase_R0 == 0){ #R0 was not increase so have to figure out which day it would have been
       lever_lift_count = 0
       for(day_count in 1:1000){ # 100 is just a safe upper bound, but loop will break before that
         # get the max of 14 day window
@@ -78,6 +195,18 @@ get_cum_inf_lift = function(data_path){
   # as.vector will go through column wise and append to one vector
   full_row = c(inital_infected, initial_R0, increase_R0, as.vector(conf_inf))
   summary_stats = t( full_row ) 
+  summary_stats = as.data.frame(summary_stats)
+  names(summary_stats) = 
+    c("Init_Infected",                   "Init_R0",                           "R0_increase",
+      "Mean_Days_from_peak_to_lift",       "CI_lower_Days_from_peak_to_lift",   "CI_upper_Days_from_peak_to_lift",  
+      "StdError_Days_from_peak_to_lift",   "Mean_Lift_day",                     "CI_lower_Lift_day",               
+      "CI_upper_Lift_day",                 "StdError_Lift_day",                 "Mean_Cum_inf_lift_day",        
+      "CI_lower_Cum_inf_lift_day",         "CI_upper_Cum_inf_lift_day",         "StdError_Cum_inf_lift_day",     
+      "Mean_Cum_inf_7d_after_lift",        "CI_lower_Cum_inf_7d_after_lift",    "CI_upper_Cum_inf_7d_after_lift",   
+      "StdError_Cum_inf_7d_after_lift",    "Mean_Cum_inf_14d_after_lift",       "CI_lower_Cum_inf_14d_after_lift",  
+      "CI_upper_Cum_inf_14d_after_lift",   "StdError_Cum_inf_14d_after_lift",   "Mean_Cum_inf_30d_after_lift",  
+      "CI_lower_Cum_inf_30d_after_lift",   "CI_upper_Cum_inf_30d_after_lift",   "StdError_Cum_inf_30d_after_lift")
+  
   # return data frame for heat map
   return(summary_stats)
 } # end function get_cum_inf_lift 
@@ -194,68 +323,3 @@ get_exit_day_data = function(data_path){
 #   write.csv(total_inf_df, total_inf_path, row.names = FALSE)
 #   return("Finished")
 # }
-
-
-
-
-
-
-# plot_county_summary_sensitivity <- function(df){
-#   df %>% 
-#     select(-frac_state_counties, - frac_state_population) %>% 
-#     gather(key, value, frac_us_population, frac_us_counties) %>% 
-#     mutate(key = ifelse(key == 'frac_us_population', "US Population", "US Counties")) %>% 
-#     ggplot(aes(detection_probability, value, color = as.factor(r_not), group = r_not, shape=as.factor(r_not)))+
-#     geom_line(size=1) + 
-#     geom_point(size=2) +
-#     scale_y_continuous(labels = scales::percent, limits = c(0,1))+
-#     facet_wrap(~key) +
-#     background_grid(major = 'xy')+
-#     labs(color  = expression(R[0]), shape=expression(R[0]), linetype=expression(R[0]))+
-#     xlab("Case Detection Probability")+
-#     ylab("Percent")+
-#     scale_color_manual(values=c("#999999", "grey39", "#000000"))+
-#     theme_bw(base_size = 10)
-# }
-# 
-# make_case_risk_plot=function(r_not_vect, det_prob){
-#   ### Open files with epi_prob data for all R0 run and put in one data frame
-#   full_df=data.frame(R0=double(), cases_detected=double(), epi_prob=double(), scam_epi_prob=double())
-#   for(val in 1:length(r_not_vect)){
-#     temp_df = read.csv( paste0("processed_data/epi_prob_data_", r_not_vect[val],"_", det_prob, "_0_1e+05.csv"), header = TRUE)
-#     R0=rep(r_not_vect[val], length(temp_df$detected))
-#     temp_df = cbind(R0, temp_df)
-#     full_df = rbind(full_df, temp_df)
-#   }
-#   names(full_df) = c("R0", "cases_detected", "epi_prob", "scam_epi_prob")
-#   full_df$R0 = factor(full_df$R0)
-#   
-#   full_df=subset(full_df, cases_detected<=50)
-#   
-#   ### Plot cases detected by epidemic risk
-#   case_risk_plot=ggplot(full_df, aes(x=cases_detected, y=epi_prob, group=R0, color=R0, shape=R0))+ #
-#   #case_risk_plot=ggplot(full_df, aes(x=cases_detected, y=scam_epi_prob, group=R0, color=R0, shape=R0))+
-#     geom_line()+
-#     geom_point()+
-#     scale_colour_grey()+
-#     expand_limits(y = 0)+
-#     xlab("Cumulative Cases Reported")+
-#     ylab("Epidemic Risk")+
-#     labs(color="R0", shape="R0")+
-#     theme_bw(base_size = 8)+
-#     theme(panel.grid.minor = element_line(colour="white", size=0.1)) +
-#     scale_x_continuous(minor_breaks = seq(0 , 50, 1), breaks = seq(0, 50, 5))+
-#     scale_y_continuous(minor_breaks = seq(0.0 , 1.1, 0.1), breaks = seq(0, 1.1, 0.1))
-# 
-#   png(file="figures/case_risk_plot.png",
-#       width=4.25,height=3.25, units = "in", res=1200)
-#   plot(case_risk_plot)
-#   dev.off()
-# }
-
-
-
-
-
-
-
