@@ -44,15 +44,15 @@ if(!dir.exists("figures/")){
 ## Heat map
 end_day_list=run_df %>% # This does not take very long, but isn't instant
   pmap(.f = get_save_path, num_reps = num_runs) %>%
-  map(get_cum_inf_lift )
+  map(get_cum_inf_lift)
 df = bind_rows(end_day_list, .id = "column_label")
-heat_map(df, init_num_infected)
+heat_map_Cum_inf_30d_after_lift(df, init_num_infected)
 
 
 # Re-define all the variables wanted for plots of infectect and detected through time
 r_not <- c(0.5)
 init_num_infected = c(100, 1000, 10000)
-increase_r_not = c(0, 0.2, 0.3, 0.4)
+increase_r_not = c(0, 0.2, 0.3, 0.4, 0.5, 1)
 inf_plot_params = expand_grid(r_not, init_num_infected, increase_r_not)
 num_runs=10000
 
@@ -68,4 +68,19 @@ inf_end_day_vect10000 = plot_through_time(df = all_df, R0 = 0.5, init_infected =
 
 # functions still need error checking for when the .rda doesn't exist, etc.
 
+# Re-define all the variables wanted for heat map of new detections after lever lift
+r_not <- c(0.5)
+init_num_infected = c(100, 1000, 10000)
+increase_r_not = c(0, 0.2, 0.3, 0.4, 0.5, 1)
+inf_plot_params = expand_grid(r_not, init_num_infected, increase_r_not)
+num_runs=10000
+
+list_of_lift_df=inf_plot_params %>%
+  pmap(.f = get_save_path, num_reps = num_runs) %>%
+  map(get_mean_after_lift_stats)
+all_lift_df = bind_rows(list_of_lift_df, .id = "column_label")
+
+
+heat_map_det_after_lift(all_lift_df, init_num_infected)
+heat_map_diff_det_after_lift(all_lift_df, init_num_infected)
 
