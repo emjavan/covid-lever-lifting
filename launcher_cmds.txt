@@ -1,4 +1,1 @@
-Rscript --no-save code/run-covid-sims-only.R 0.5 100 0.1 10000
-Rscript --no-save code/run-covid-sims-only.R 0.5 100 0.2 10000
-Rscript --no-save code/run-covid-sims-only.R 0.5 100 0.3 10000
-
+Rscript --no-save code/run-covid-sims-only.R 0.5 10000 0.6 10000
