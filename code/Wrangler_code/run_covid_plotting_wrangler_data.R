@@ -29,8 +29,7 @@ if(!dir.exists("figures/")){
 # Re-define all the variables wanted for heat map of new detections after lever lift
 r_not <- c(0.5)
 init_num_infected = c(100, 1000, 10000)
-#increase_r_not = c(0, 0.2, 0.4, 0.6, 0.8, 1)
-increase_r_not = c(0, 0.2, 0.3, 0.4, 0.5, 1)
+increase_r_not = c(0, 0.2, 0.4, 0.6, 0.8, 1)
 inf_plot_params = expand_grid(r_not, init_num_infected, increase_r_not)
 num_runs=10000
 
