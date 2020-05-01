@@ -2,7 +2,6 @@
 ## Code for running and saving all COVID simulations
 ##############################################################
 library(tidyverse)
-#library(rtZIKVrisk)
 
 an.error.occured1 <- FALSE 
 tryCatch( { result <- file.exists("code/sim-covid-outbreaks-lever-lift.R"); print(result) },
@@ -83,4 +82,17 @@ all_lift_df = bind_rows(list_of_lift_df, .id = "column_label")
 
 heat_map_det_after_lift(all_lift_df, init_num_infected)
 heat_map_diff_det_after_lift(all_lift_df, init_num_infected)
+
+# quick plot of new detections through time
+data_path="processed_data/sims_0.5_10000_1_10000.rda"
+load(data_path)
+single_df = sims[[1]]
+single_df$R0 = factor(single_df$R0)
+dev.off()
+ggplot(single_df, aes(x=Day_Count, y=New_Detections, group=R0, color=R0))+
+  geom_point()
+
+
+
+
 
