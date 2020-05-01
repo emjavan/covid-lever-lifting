@@ -24,7 +24,7 @@ get_mean_after_lift_stats = function(data_path){
   incr_R0_vect         = rep(increase_R0, (days_after_lift+1))
   final_R0_vect        = rep(R0_final,    (days_after_lift+1))
   init_inf_vect        = rep(init_inf,    (days_after_lift+1))
-  
+
   case_det_info_after_lift=sapply(sims, function(x){
     if(increase_R0 == 0){ #R0 was not increase so have to figure out which day it would have been
       lever_lift_count = 0
@@ -67,7 +67,7 @@ get_mean_after_lift_stats = function(data_path){
     diff=det_after_lift-det_after_lift[1]
     all_val=c(first_less_than_rest, diff)
     return(all_val)
-  })
+  }) # end sapply
   
   means=rowMeans(case_det_info_after_lift)
   df=data.frame(init_inf_vect, init_R0_vect, incr_R0_vect, final_R0_vect,
@@ -86,7 +86,7 @@ heat_map_det_after_lift = function(df, init_num_infected){
       geom_tile()+
       scale_fill_gradient(low="gray100", high="gray72")+
       geom_text(size=2, aes(label=round(Det_less_than_lift*100, digits=1) ))+
-      ggtitle(paste0("Percent Sims with New Det < Lift Day New Det, Init with ", init_num_infected[i], " Infected")) +
+      ggtitle(paste0("Percent Sims with New Det > Lift Day New Det, Init with ", init_num_infected[i], " Infected")) +
       xlab("R0") +
       ylab("Days after lifting lever")+
       scale_x_discrete(breaks = unique(df$R0_Final))+
