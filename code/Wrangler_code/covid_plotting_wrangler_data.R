@@ -101,8 +101,8 @@ plot_prob_R0_above_1 = function(df, init_num_infected){
     geom_point()+
     expand_limits(y = 0)+
     scale_colour_grey(name="Initial Infected")+
-    xlab("Number of Days After Lifting Social Distancing")+
-    ylab("Probability R0>1")+
+    xlab("Number of Days After Relaxing Transmission Reduction")+
+    ylab("Prob New Det > Lift Day New Det | R0>1")+
     scale_y_continuous(minor_breaks = seq(0.0 , 1.1, 0.1), breaks = seq(0.0, 1.1, 0.1))+
     theme_bw(base_size = 8)#+
     #theme(legend.position = c(0.8, 0.7))
