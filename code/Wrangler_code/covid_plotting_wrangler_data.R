@@ -227,7 +227,7 @@ plot_prob_R0_above_1_increase_by = function(df, input_init_inf, pt_or_mean){
     mean_plot=ggplot(prob_df, aes(x=days_after_lift, y=prob_greater1, group=increase_by_vect, color=increase_by_vect))+
       geom_point()+
       expand_limits(y = 0)+
-      scale_colour_grey(name="Initial Infected")+
+      scale_colour_grey(name="New Det Greater by")+
       xlab("Number of Days After Lifting Lever")+
       ylab("Prob R0>1 | Mean(New Det) > Lift Day New Det")+
       labs(title=paste0("Mean Comparison, Sims initialized with ", input_init_inf, " infected"))+
