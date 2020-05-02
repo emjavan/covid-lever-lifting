@@ -3,7 +3,6 @@
 ##############################################################
 
 library(tidyverse)
-#library(rtZIKVrisk)
 
 # load file with get_save_path function
 an.error.occured1 <- FALSE 
@@ -29,16 +28,35 @@ if(!dir.exists("figures/")){
 # Re-define all the variables wanted for heat map of new detections after lever lift
 r_not <- c(0.5)
 init_num_infected = c(100, 1000, 10000)
-increase_r_not = c(0, 0.2, 0.4, 0.6, 0.8, 1)
+#increase_r_not = c(0, 0.2, 0.4, 0.6, 0.8, 1)
+increase_r_not = c(0, 1)
 inf_plot_params = expand_grid(r_not, init_num_infected, increase_r_not)
 num_runs=10000
 
-list_of_lift_df=inf_plot_params %>%
+# Get the prob R0>1 by doing point comparison of new detections with day of lift new detections
+list_of_lift_df_pt=inf_plot_params %>%
   pmap(.f = get_save_path, num_reps = num_runs) %>%
-  map(get_mean_after_lift_stats)
-all_lift_df = bind_rows(list_of_lift_df, .id = "column_label")
+  map(get_mean_after_lift_stats_pt_compare )
+all_lift_df_pt = bind_rows(list_of_lift_df_pt, .id = "column_label")
+plot_prob_R0_above_1(all_lift_df_pt, init_num_infected, pt_or_mean = "pt")
 
-plot_prob_R0_above_1(all_lift_df, init_num_infected)
+
+# Get the prob R0>1 by doing mean of new detections on subsequent days in comparison with day of lift new detections
+list_of_lift_df_mean=inf_plot_params %>%
+  pmap(.f = get_save_path, num_reps = num_runs) %>%
+  map(get_mean_after_lift_stats_mean_compare)
+all_lift_df_mean = bind_rows(list_of_lift_df_mean, .id = "column_label")
+plot_prob_R0_above_1(all_lift_df_mean, init_num_infected, pt_or_mean = "mean")
+
+
+
+
+
+
+
+
+
+
 
 
 

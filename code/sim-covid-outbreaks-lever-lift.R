@@ -343,7 +343,7 @@ get_save_path <- function(r_not,
                           init_num_infected,
                           increase_r_not,
                           num_reps){
-    paste0("processed_data/sims_", r_not, "_", init_num_infected, "_", increase_r_not, "_", num_reps, ".rda")
+  paste0("processed_data/sims_", r_not, "_", init_num_infected, "_", increase_r_not, "_", num_reps, ".rda")
 } # end function
 
 save_covid_runs <- function(r_not,
