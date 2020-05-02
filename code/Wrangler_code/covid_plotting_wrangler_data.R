@@ -187,6 +187,64 @@ get_mean_after_lift_stats_pt_compare = function(data_path){
 
 
 
+# Plot to compare probability R0>1 with an increase by 0 to 5 upon comparison
+plot_prob_R0_above_1_increase_by = function(df, input_init_inf, pt_or_mean){
+  # subset by the inital number infected
+  df_sub           = subset(df, Init_Infected==input_init_inf)
+  prob_df          = data.frame(group=double(), day_count=double(), prob=double())
+  for(i in 0:5){ # 50 is hard coded here and in get_mean_after_lift_stats_*_compare functions
+    # sum all rows in dataframe subset with the same day count
+    grp_sum          = rowsum(df_sub[,i+7], df_sub$Days_after_lift)
+    # subset by all R0 Final > 1, inputs should have been balance about 1
+    sub_greater1     = subset(df_sub, R0_Final>1)
+    # sum all rows in the sub-sub-dataframe to get numerator in prob vect
+    grp_sum_greater1 = rowsum(sub_greater1[,i+7], sub_greater1$Days_after_lift)
+    # get proportion of runs where new det on lift day < new det on subsequent days given R0>1
+    prob_greater1    = grp_sum_greater1/grp_sum
+    prob_greater1    = prob_greater1[-1,] # remove the first value of lift day itself as it was 0/0=Nan
+    #prob_greater1[is.na(prob_greater1)]=0.0
+    increase_by_vect = rep(i, length(prob_greater1)) # initial infected as a vector
+    days_after_lift  = seq(1, length(prob_greater1), 1)
+    temp_df          = data.frame(days_after_lift, increase_by_vect, prob_greater1)
+    prob_df          = rbind(prob_df, temp_df)
+  }
+  prob_df$increase_by_vect=factor(prob_df$increase_by_vect) # grouping in ggplot needs to be factor
+  
+  if(pt_or_mean=="pt"){
+    pt_plot=ggplot(prob_df, aes(x=days_after_lift, y=prob_greater1, group=increase_by_vect, color=increase_by_vect))+
+      geom_point()+
+      scale_colour_grey(name="New Det Greater by")+
+      expand_limits(y = 0)+
+      xlab("Number of Days After Lifting Lever")+
+      ylab("Prob R0>1 | New Det > Lift Day New Det")+
+      labs(title=paste0("Point Comparison, Sims initialized with ", input_init_inf, " infected"))+
+      scale_y_continuous(minor_breaks = seq(0.0 , 1.1, 0.1), breaks = seq(0.0, 1.1, 0.1))+
+      theme_bw(base_size = 8)
+    png(file=paste0("wrangler_figures/prob_R0_greater1_through_time_pt_", input_init_inf, ".png"), width=4.25,height=3.25, units = "in", res=1200)
+    print(pt_plot)
+    dev.off()
+  }else if(pt_or_mean=="mean"){
+    mean_plot=ggplot(prob_df, aes(x=days_after_lift, y=prob_greater1, group=increase_by_vect, color=increase_by_vect))+
+      geom_point()+
+      expand_limits(y = 0)+
+      scale_colour_grey(name="Initial Infected")+
+      xlab("Number of Days After Lifting Lever")+
+      ylab("Prob R0>1 | Mean(New Det) > Lift Day New Det")+
+      labs(title=paste0("Mean Comparison, Sims initialized with ", input_init_inf, " infected"))+
+      scale_y_continuous(minor_breaks = seq(0.0 , 1.1, 0.1), breaks = seq(0.0, 1.1, 0.1))+
+      theme_bw(base_size = 8)
+    png(file=paste0("wrangler_figures/prob_R0_greater1_through_time_mean_", input_init_inf, ".png"), width=4.25,height=3.25, units = "in", res=1200)
+    print(mean_plot)
+    dev.off()
+  }else{
+    print("Invalid pt_or_mean input")
+  }
+  return(0)
+  
+}
+
+
+
 
 ### Plot probability R0>1 through time for each init num infected scenario
 plot_prob_R0_above_1 = function(df, init_num_infected, pt_or_mean){
@@ -212,13 +270,13 @@ plot_prob_R0_above_1 = function(df, init_num_infected, pt_or_mean){
   if(pt_or_mean=="pt"){
     plot=ggplot(prob_df, aes(x=days_after_lift, y=prob_greater1, group=init_inf_vect, color=init_inf_vect))+
       geom_point()+
-      expand_limits(y = 0)+
       scale_colour_grey(name="Initial Infected")+
+      expand_limits(y = 0)+
       xlab("Number of Days After Lifting Lever")+
       ylab("Prob R0>1 | New Det > Lift Day New Det")+
       scale_y_continuous(minor_breaks = seq(0.0 , 1.1, 0.1), breaks = seq(0.0, 1.1, 0.1))+
       theme_bw(base_size = 8)
-    png(file="figures/prob_R0_greater1_through_time_pt.png", width=4.25,height=3.25, units = "in", res=1200)
+    png(file="wrangler_figures/prob_R0_greater1_through_time_pt.png", width=4.25,height=3.25, units = "in", res=1200)
     print(plot)
     dev.off()
   }else if(pt_or_mean=="mean"){
@@ -230,7 +288,7 @@ plot_prob_R0_above_1 = function(df, init_num_infected, pt_or_mean){
       ylab("Prob R0>1 | Mean(New Det) > Lift Day New Det")+
       scale_y_continuous(minor_breaks = seq(0.0 , 1.1, 0.1), breaks = seq(0.0, 1.1, 0.1))+
       theme_bw(base_size = 8)
-    png(file="figures/prob_R0_greater1_through_time_mean.png", width=4.25,height=3.25, units = "in", res=1200)
+    png(file="wrangler_figures/prob_R0_greater1_through_time_mean.png", width=4.25,height=3.25, units = "in", res=1200)
     print(plot)
     dev.off()
   }else{
