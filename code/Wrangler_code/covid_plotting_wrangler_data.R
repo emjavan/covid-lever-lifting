@@ -63,25 +63,34 @@ get_mean_after_lift_stats_mean_compare = function(data_path){
     det_after_lift=x$New_Detections[lift_day:(lift_day+days_after_lift)]
     det_after_lift[is.na(det_after_lift)]=0
     
-    first_less_than_mean_rest = c(NA)
-    diff = c(0)
-    # rather than point comparison lift day is compared with mean of the following days
-    for(i in 2:(total_days) ){
-      tempTF= as.integer((det_after_lift[1] < mean(det_after_lift[2:i]) ))
-      first_less_than_mean_rest = c(first_less_than_mean_rest, tempTF)
-      tempDiff = mean(det_after_lift[2:i]) - det_after_lift[1]
-      diff = c(diff, tempDiff)
-    }
-    # put all in 1 vector which will return as column of matrix ?
-    all_val=c(first_less_than_mean_rest, diff)
+    # nested for loops defintely not ideal, but not sure how else to deal with this
+    first_less_than_mean_rest = c()
+    for(increase_by in 0:50){ # get the probs for increase_by from 0:50
+      # if not using difference, vector doesn't need to be length total days
+      # but this matches with other fucntions currently
+      tempTF1 = c(NA)
+      first_less_than_mean_rest = c(first_less_than_mean_rest, tempTF1)
+      # rather than point comparison lift day is compared with mean of the following days
+      for(i in 2:(total_days) ){
+        tempTF= as.integer(((det_after_lift[1]+increase_by) < mean(det_after_lift[2:i]) ))
+        first_less_than_mean_rest = c(first_less_than_mean_rest, tempTF)
+      } # end for i
+    } # end for increase by
+    
+    # put all in 1 vector which will return as row of matrix
+    all_val=c(first_less_than_mean_rest)
     return(all_val)
   }) # end sapply
   
   means=rowMeans(case_det_info_after_lift)
   df=data.frame(init_inf_vect, init_R0_vect, incr_R0_vect, final_R0_vect,
-                days_after_lift_vect, means[1:(total_days)], means[(days_after_lift+2):((days_after_lift*2)+2)])
+                days_after_lift_vect, means[1:(total_days)])
   names(df)=c("Init_Infected", "Init_R0", "Increase_by_R0", "R0_Final", 
-              "Days_after_lift", "Det_less_than_lift", "Diff_new_det_less_than_lift")
+              "Days_after_lift", "Det_less_than_lift")
+  # append the rest of means to the data frame 
+  for(i in 1:50){
+    df[[paste0("Det_less_than_lift_",i)]] = means[(i*total_days+1):((i+1)*total_days)]
+  }
   return(df)
 } # end function get_mean_after_lift_stats_mean_compare
 
@@ -106,11 +115,12 @@ get_mean_after_lift_stats_pt_compare = function(data_path){
   increase_R0          = as.double(path_split[5])
   R0_final             = initial_R0+increase_R0
   days_after_lift      = 30
+  total_days           = days_after_lift + 1
   days_after_lift_vect = seq(0, days_after_lift, 1)
-  init_R0_vect         = rep(initial_R0,  (days_after_lift+1))
-  incr_R0_vect         = rep(increase_R0, (days_after_lift+1))
-  final_R0_vect        = rep(R0_final,    (days_after_lift+1))
-  init_inf_vect        = rep(init_inf,    (days_after_lift+1))
+  init_R0_vect         = rep(initial_R0,  (total_days))
+  incr_R0_vect         = rep(increase_R0, (total_days))
+  final_R0_vect        = rep(R0_final,    (total_days))
+  init_inf_vect        = rep(init_inf,    (total_days))
   
   case_det_info_after_lift=sapply(sims, function(x){
     if(increase_R0 == 0){ #R0 was not increase so have to figure out which day it would have been
@@ -150,18 +160,27 @@ get_mean_after_lift_stats_pt_compare = function(data_path){
     
     det_after_lift=x$New_Detections[lift_day:(lift_day+days_after_lift)]
     det_after_lift[is.na(det_after_lift)]=0
-    # increase_by=0
+    # initialize with increase_by=0
     first_less_than_rest=as.integer((det_after_lift[1])<det_after_lift)
-    diff=det_after_lift-det_after_lift[1]
-    all_val=c(first_less_than_rest, diff)
+    for(increase_by in 1:50){ # get the probs for increase_by from 1:50
+      temp_first=as.integer((det_after_lift[1]+increase_by)<det_after_lift)
+      first_less_than_rest = c(first_less_than_rest, temp_first)
+    }
+    all_val=c(first_less_than_rest)
     return(all_val)
   }) # end sapply
   
+  # get the mean of all rows
   means=rowMeans(case_det_info_after_lift)
+  # assign first chunk of means and other helpful metrics to initialize df
   df=data.frame(init_inf_vect, init_R0_vect, incr_R0_vect, final_R0_vect,
-                days_after_lift_vect, means[1:(days_after_lift+1)], means[(days_after_lift+2):((days_after_lift*2)+2)])
+                days_after_lift_vect, means[1:total_days])
   names(df)=c("Init_Infected", "Init_R0", "Increase_by_R0", "R0_Final", 
-              "Days_after_lift", "Det_less_than_lift", "Diff_new_det_less_than_lift")
+              "Days_after_lift", "Det_less_than_lift")
+  # append the rest of means to the data frame 
+  for(i in 1:50){
+    df[[paste0("Det_less_than_lift_",i)]] = means[(i*total_days+1):((i+1)*total_days)]
+  }
   return(df)
 } # end function get_mean_after_lift_stats_pt_compare
 
