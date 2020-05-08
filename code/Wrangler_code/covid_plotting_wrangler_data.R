@@ -268,7 +268,7 @@ plot_prob_R0_above_1 = function(df, init_num_infected, pt_or_mean){
   }
   prob_df$init_inf_vect=factor(prob_df$init_inf_vect) # grouping in ggplot needs to be factor
   if(pt_or_mean=="pt"){
-    write.csv(prob_df, "point_compare_r0_above1.csv")
+    write.csv(prob_df, "point_compare_r0_above1.csv", row.names = FALSE)
     plot=ggplot(prob_df, aes(x=days_after_lift, y=prob_greater1, group=init_inf_vect, color=init_inf_vect))+
       geom_point()+
       scale_colour_grey(name="Initial Infected")+
@@ -281,7 +281,7 @@ plot_prob_R0_above_1 = function(df, init_num_infected, pt_or_mean){
     print(plot)
     dev.off()
   }else if(pt_or_mean=="mean"){
-    write.csv(prob_df, "mean_compare_r0_above1.csv")
+    write.csv(prob_df, "mean_compare_r0_above1.csv", row.names = FALSE)
     plot=ggplot(prob_df, aes(x=days_after_lift, y=prob_greater1, group=init_inf_vect, color=init_inf_vect))+
       geom_point()+
       expand_limits(y = 0)+

@@ -38,8 +38,10 @@ list_of_lift_df_pt=inf_plot_params %>%
   pmap(.f = get_save_path, num_reps = num_runs) %>%
   map(get_mean_after_lift_stats_pt_compare )
 all_lift_df_pt = bind_rows(list_of_lift_df_pt, .id = "column_label")
+
 # plot function converts to probability R0>1
 plot_prob_R0_above_1(all_lift_df_pt, init_num_infected, pt_or_mean = "pt")
+
 
 plot_prob_R0_above_1_increase_by(all_lift_df_pt, input_init_inf=100, pt_or_mean = "pt")
 plot_prob_R0_above_1_increase_by(all_lift_df_pt, input_init_inf=1000, pt_or_mean = "pt")
