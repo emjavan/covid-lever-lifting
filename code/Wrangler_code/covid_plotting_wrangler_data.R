@@ -17,7 +17,7 @@ plot_prob_R0_above_1_county_map = function(df, init_num_infected){
   # get day counties open and days since, currently hard coded by should move to automatic update of days and diff
   # depends on most recent NYT data as well and if that has updated
   opening_data=read.csv("raw_data/county_opening_data.csv")
-  case_data = read.csv("/Users/emilyjavan/Documents/GitHub/covid-19-data/us-counties.csv") # open csv with NYT data for cumulative cases and deaths
+  case_data = read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv") # open csv with NYT data for cumulative cases and deaths
   case_data$fips = as.double(case_data$fips)
   
   all_counties=usmap::us_map(regions = "counties")%>% 
