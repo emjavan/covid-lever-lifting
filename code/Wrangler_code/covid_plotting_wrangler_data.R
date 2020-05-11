@@ -13,7 +13,6 @@ options(warn=-1) # suppress all the warnings from ci()
 # function write csv for each R0>1 probability dataframe, plots heat map and US by counties
 plot_prob_R0_above_1_county_map = function(df, init_num_infected){
   ################# Get all the county data ready to use #################
-  prob_by_day = read.csv("prob_r0_above_below_1.csv") # prob of R0>1 given days following lever lift greater than lift day, or less
   # get day counties open and days since, currently hard coded by should move to automatic update of days and diff
   # depends on most recent NYT data as well and if that has updated
   opening_data=read.csv("raw_data/county_opening_data.csv")
