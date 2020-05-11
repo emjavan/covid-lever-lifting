@@ -5,7 +5,7 @@
 #SBATCH -e covid-test.%j.e     # Name of stdout output file (%j expands to jobId)
 #SBATCH -p normal              # Queue name
 #SBATCH -N 1                   # Total number of nodes requested (24 cores/node)
-#SBATCH -n 3                   # Total number of tasks to run in total
+#SBATCH -n 33                  # Total number of tasks to run in total
 #SBATCH -t 24:00:00            # Run time (hh:mm:ss)
 
 # Load launcher
