@@ -10,7 +10,7 @@ options(warn=-1) # suppress all the warnings from ci()
 ########################### NEW FUNCTIONS 
 ########################################################################################
 
-# function write csv for each R0>1 probability dataframe, plots heat map and US by counties
+# function write csv for each R0>1 probability dataframe, plots prob US by counties
 plot_prob_R0_above_1_county_map = function(df, init_num_infected){
   ################# Get all the county data ready to use #################
   # get day counties open and days since, currently hard coded by should move to automatic update of days and diff
@@ -45,18 +45,22 @@ plot_prob_R0_above_1_county_map = function(df, init_num_infected){
     daily_cases = c(daily_cases, temp_vect)
   } # end for i
   daily_cases[daily_cases<0]=0
-  map_cases = cbind(map_cases, daily_cases)
-  
-  # get only needed columns from df
-  opening_data = subset(opening_data, select = c(fips, Reopening_date, Today_date, Days_after_lift) )
-  map_opening=merge(map_cases, opening_data, all.x = TRUE)
+  map_cases = cbind(map_cases, daily_cases) # map_cases is detections for each county
+  opening_data = subset(opening_data, select = c(fips, Reopening_date, Today_date, Days_after_lift, Reop_diff_from_true_date) ) # get only needed columns from df
+  map_opening=merge(map_cases, opening_data, all.x = TRUE) # merge case data with lever lift data
   map_opening = map_opening %>% 
-    rename(County = county.x)
-  map_opening = subset(map_opening, select = -c(county.y))
+    rename(County = county.x) # renamed to make unique and easy to read
+  map_opening = subset(map_opening, select = -c(county.y)) # getting rid of extra column
+  # assign re-opening date for counties that never detected a case => probably not searching 10% but giving them a prob of 0.5
+  map_opening$date[map_opening$cases==0]=as.Date(map_opening$Reopening_date[map_opening$cases==0], "%m/%d/%y") 
+  
   reopening_cases_df=subset(map_opening, (as.Date(map_opening$Reopening_date, "%m/%d/%y")==as.Date(map_opening$date))==TRUE) # reopening day cases matched to date
   today_cases_df=subset(map_opening, (as.Date(map_opening$Today_date, "%m/%d/%y")==as.Date(map_opening$date))==TRUE) # most recent day's cases matched to date
   reopen_today_cases_df = merge(reopening_cases_df,  today_cases_df,
-                                by = c("fips", "abbr", "County", "state", "Reopening_date", "Today_date","Days_after_lift")) # combine dfs
+                                by = c("fips", "abbr", "County", "state", "Reopening_date", "Today_date","Days_after_lift"), all=TRUE) # combine dfs
+  reopen_today_cases_df$daily_cases.y[is.na(reopen_today_cases_df$daily_cases.y)]=0 # 0 detections at later date
+  reopen_today_cases_df$daily_cases.x[is.na(reopen_today_cases_df$daily_cases.x)]=0
+  
   delta_daily_cases = (reopen_today_cases_df$daily_cases.y - reopen_today_cases_df$daily_cases.x) # current daily cases - reopening daily cases = change in detections
   reopen_today_cases_df = cbind(reopen_today_cases_df, delta_daily_cases )
   
@@ -64,123 +68,89 @@ plot_prob_R0_above_1_county_map = function(df, init_num_infected){
   map_data$fips = as.numeric(map_data$fips)
   
   ################# Make plots for all data together and split by init inf #################
-  inf_vect_len = length(init_num_infected)
-  for(k in 1:(inf_vect_len+1)){
-    if(k<=inf_vect_len){
-      temp_df=subset(df, Init_Inf==init_num_infected[k])
-      prob_df <- temp_df %>% 
-        group_by(tl, delta) %>% 
-        summarize(prob_R0_above1 = sum(R0>1)/n()) %>% 
-        ungroup()
-      write.csv(prob_df, paste0("wrangler_output/init_inf_", init_num_infected[k],"_prob_r0_above_1.csv")) # write output to csv
-      
-      #### Assign probability R0> 1 to each county that isn't NA
-      num_county = length(reopen_today_cases_df$fips)
-      county_prob_vect=rep(NA, num_county) 
-      for(c in 1:num_county){
-        # look up with subset
-        temp=subset(prob_df, prob_df$tl == reopen_today_cases_df$Days_after_lift[c] & 
-                      prob_df$delta == reopen_today_cases_df$delta_daily_cases[c])
-        if(nrow(temp)==1){ # if value was found in table assign the exact probability
-          county_prob_vect[c] = temp$prob_R0_above1
-        }else{ # if the value is not found in table assign most likely probability from other values
-          # subset of only the days since lever lift
-          temp2 = subset(prob_df, prob_df$tl == reopen_today_cases_df$Days_after_lift[c])
-          if(reopen_today_cases_df$delta_daily_cases[c] > 0){
-            county_prob_vect[c] = max(temp2$prob_R0_above1) # give max prob for those days out if delta is positive
-          }else{
-            county_prob_vect[c] = min(temp2$prob_R0_above1) # give min prob for those days out if delta negative
-          } # end if delta is positive or negative
-        } # end if value not found in table
-      } # end for i
-      
-      temp_reopen_today_cases_df = cbind(reopen_today_cases_df, county_prob_vect)
-      temp_reopen_today_cases_df$fips = as.numeric(temp_reopen_today_cases_df$fips)
-      new_map_data = map_data %>% 
-        left_join(temp_reopen_today_cases_df, by = "fips")
-      
-      # Plot US Map
-      png(file=paste0("wrangler_output/init_inf",init_num_infected[k], "_us_map_", temp_reopen_today_cases_df$date.y[1], ".png"), 
-          width=5.25,height=3.25, units = "in", res=1200)
-      plot=ggplot(new_map_data, aes(x = x, y = y)) + 
-        geom_polygon(aes(group = group, fill = county_prob_vect), color = "black", size = 0.1) +
-        scale_fill_gradient(low = "gainsboro", high = "dark red", name = "Probability")+
-        scale_x_continuous("", breaks = NULL) + scale_y_continuous("", breaks = NULL)+
-        labs(title = paste0("Probability R0>1 as of ", temp_reopen_today_cases_df$date.y[1], ", InitInf=",init_num_infected[k])) +
-        theme(panel.background = element_rect(color = "white", fill = "white"), 
-              legend.title=element_text(size=8), 
-              legend.text=element_text(size=6),
-              title =element_text(size=8))
-      print(plot)
-      dev.off()
-      
-      # Plot heat map
-      heat_map=ggplot(prob_df , aes(tl,delta, fill = prob_R0_above1)) + geom_tile() +
-        labs(title = paste0("Probability  R0>1 Heat Map, InitInf=",init_num_infected[k]))+
-        xlab("tl, time since lever lift (days)")+
-        ylab("delta, change in new detected cases")
-      png(file=paste0("wrangler_output/init_inf", init_num_infected[k], "_heat_map.png"), 
-          width=4.25,height=4.25, units = "in", res=1200)
-      print(heat_map)
-      dev.off()
-    }else{
-      prob_df <- df %>% 
-        group_by(tl, delta) %>% 
-        summarize(prob_R0_above1 = sum(R0>1)/n()) %>% 
-        ungroup()
-      write.csv(prob_df, "wrangler_output/all_init_inf_prob_r0_above_1.csv")
-      
-      #### Assign probability R0> 1 to each county that isn't NA
-      num_county = length(reopen_today_cases_df$fips)
-      county_prob_vect=rep(NA, num_county) 
-      for(c in 1:num_county){
-        # look up with subset
-        temp=subset(prob_df, prob_df$tl == reopen_today_cases_df$Days_after_lift[c] & 
-                      prob_df$delta == reopen_today_cases_df$delta_daily_cases[c])
-        if(nrow(temp)==1){ # if value was found in table assign the exact probability
-          county_prob_vect[c] = temp$prob_R0_above1
-        }else{ # if the value is not found in table assign most likely probability from other values
-          # subset of only the days since lever lift
-          temp2 = subset(prob_df, prob_df$tl == reopen_today_cases_df$Days_after_lift[c])
-          if(reopen_today_cases_df$delta_daily_cases[c] > 0){
-            county_prob_vect[c] = max(temp2$prob_R0_above1) # give max prob for those days out if delta is positive
-          }else{
-            county_prob_vect[c] = min(temp2$prob_R0_above1) # give min prob for those days out if delta negative
-          } # end if delta is positive or negative
-        } # end if value not found in table
-      } # end for i
-      
-      temp_reopen_today_cases_df = cbind(reopen_today_cases_df, county_prob_vect)
-      temp_reopen_today_cases_df$fips = as.numeric(temp_reopen_today_cases_df$fips)
-      new_map_data = map_data %>% 
-        left_join(temp_reopen_today_cases_df, by = "fips")
-      
-      # Plot US Map
-      png(file=paste0("wrangler_output/all_init_inf_us_map_", temp_reopen_today_cases_df$date.y[1], ".png"), 
-          width=5.25,height=3.25, units = "in", res=1200)
-      plot=ggplot(new_map_data, aes(x = x, y = y)) + 
-        geom_polygon(aes(group = group, fill = county_prob_vect), color = "black", size = 0.1) +
-        scale_fill_gradient(low = "gainsboro", high = "dark red", name = "Probability")+
-        scale_x_continuous("", breaks = NULL) + scale_y_continuous("", breaks = NULL)+
-        labs(title = paste0("Probability R0>1 as of ", temp_reopen_today_cases_df$date.y[1], ", InitInf=All")) +
-        theme(panel.background = element_rect(color = "white", fill = "white"), 
-              legend.title=element_text(size=8), 
-              legend.text=element_text(size=6),
-              title =element_text(size=8))
-      print(plot)
-      dev.off()
-      
-      # Plot heat map
-      heat_map=ggplot(prob_df , aes(tl,delta, fill = prob_R0_above1)) + geom_tile() +
-        labs(title = "Probability  R0>1 Heat Map, InitInf=All")+
-        xlab("tl, time since lever lift (days)")+
-        ylab("delta, change in new detected cases")
-      png(file=paste0("wrangler_output/all_init_inf_heat_map.png"), 
-          width=4.25,height=4.25, units = "in", res=1200)
-      print(heat_map)
-      dev.off()
-    } # end if else to plot subset of the full data frame
-  } # end for loop over all plotting options
+  for(k in 1:length(init_num_infected)){
+    temp_df=subset(df, Init_Inf==init_num_infected[k])
+    prob_df <- temp_df %>% 
+      group_by(tl, delta) %>% 
+      summarize(prob_R0_above1 = sum(R0>1)/n()) %>% 
+      ungroup()
+    write.csv(prob_df, paste0("wrangler_output/init_inf_", init_num_infected[k],"_prob_r0_above_1.csv") ) # write output to csv
+    
+    assign(paste0("prob_df_", init_num_infected[k]), prob_df )
+  } # end for loop over all init infected choices
+  
+  #### Assign probability R0> 1 to each county that isn't NA
+  num_county = length(reopen_today_cases_df$fips)
+  county_prob_vect=rep(NA, num_county) 
+  for(c in 1:num_county){ # loop over all the counties
+    if(reopen_today_cases_df$daily_cases.x < 2){ # most likely only 100 infected cases, but will need to discuss
+      # look up with subset
+      temp=subset(prob_df_100, prob_df_100$tl == reopen_today_cases_df$Days_after_lift[c] & 
+                    prob_df_100$delta == reopen_today_cases_df$delta_daily_cases[c])
+      if(nrow(temp)==1){ # if value was found in table assign the exact probability
+        county_prob_vect[c] = temp$prob_R0_above1
+      }else{ # if the value is not found in table assign most likely probability from other values
+        # subset of only the days since lever lift
+        temp2 = subset(prob_df_100, prob_df_100$tl == reopen_today_cases_df$Days_after_lift[c])
+        if(reopen_today_cases_df$delta_daily_cases[c] > 0){
+          county_prob_vect[c] = max(temp2$prob_R0_above1) # give max prob for those days out if delta is positive
+        }else{
+          county_prob_vect[c] = min(temp2$prob_R0_above1) # give min prob for those days out if delta negative
+        } # end if delta is positive or negative
+      } # end if value not found in table
+    }else if(reopen_today_cases_df$daily_cases.x >= 2 & reopen_today_cases_df$daily_cases.x < 11){ # most likely only 1000 infected cases
+      # look up with subset
+      temp=subset(prob_df_1000, prob_df_1000$tl == reopen_today_cases_df$Days_after_lift[c] & 
+                    prob_df_1000$delta == reopen_today_cases_df$delta_daily_cases[c])
+      if(nrow(temp)==1){ # if value was found in table assign the exact probability
+        county_prob_vect[c] = temp$prob_R0_above1
+      }else{ # if the value is not found in table assign most likely probability from other values
+        # subset of only the days since lever lift
+        temp2 = subset(prob_df, prob_df_1000$tl == reopen_today_cases_df$Days_after_lift[c])
+        if(reopen_today_cases_df$delta_daily_cases[c] > 0){
+          county_prob_vect[c] = max(temp2$prob_R0_above1) # give max prob for those days out if delta is positive
+        }else{
+          county_prob_vect[c] = min(temp2$prob_R0_above1) # give min prob for those days out if delta negative
+        } # end if delta is positive or negative
+      } # end if value not found in table
+    }else{ # greater than 11 daily detections assume initialized with 10,000 cases
+      # look up with subset
+      temp=subset(prob_df_10000, prob_df_10000$tl == reopen_today_cases_df$Days_after_lift[c] & 
+                    prob_df_10000$delta == reopen_today_cases_df$delta_daily_cases[c])
+      if(nrow(temp)==1){ # if value was found in table assign the exact probability
+        county_prob_vect[c] = temp$prob_R0_above1
+      }else{ # if the value is not found in table assign most likely probability from other values
+        # subset of only the days since lever lift
+        temp2 = subset(prob_df, prob_df_10000$tl == reopen_today_cases_df$Days_after_lift[c])
+        if(reopen_today_cases_df$delta_daily_cases[c] > 0){
+          county_prob_vect[c] = max(temp2$prob_R0_above1) # give max prob for those days out if delta is positive
+        }else{
+          county_prob_vect[c] = min(temp2$prob_R0_above1) # give min prob for those days out if delta negative
+        } # end if delta is positive or negative
+      } # end if value not found in table
+    } # end if else for choosing correct initial number infected
+  } # end for c loop over all counties in dataframe
+  
+  temp_reopen_today_cases_df = cbind(reopen_today_cases_df, county_prob_vect)
+  temp_reopen_today_cases_df$fips = as.numeric(temp_reopen_today_cases_df$fips)
+  new_map_data = map_data %>% 
+    left_join(temp_reopen_today_cases_df, by = "fips")
+  
+  # Plot US Map # really wanted 2 different scales but couldn't figure out how to plot it >_<
+  png(file=paste0("wrangler_output/variable_init_inf_us_map_", temp_reopen_today_cases_df$date.y[1], ".png"), 
+      width=5.25,height=3.25, units = "in", res=1200)
+  plot=ggplot(new_map_data, 
+              aes(x = x, y = y, group=group, fill = county_prob_vect)) + 
+    geom_polygon(color = "black", size = 0.05) +
+    scale_fill_gradient2(low="purple4", mid = "lavenderblush", high = "orangered4", midpoint = 0.5, name = "Prob R0>1")+
+    scale_x_continuous("", breaks = NULL) + scale_y_continuous("", breaks = NULL)+
+    labs(title = paste0("Probability R0>1 as of ", temp_reopen_today_cases_df$date.y[1])) +
+    theme(panel.background = element_rect(color = "white", fill = "white"), 
+          legend.title=element_text(size=8), 
+          legend.text=element_text(size=6),
+          title =element_text(size=8))
+  print(plot)
+  dev.off()
 } # end function plot_prob_R0_above_1_county_map
 
 

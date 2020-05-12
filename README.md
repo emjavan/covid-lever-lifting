@@ -34,3 +34,20 @@ export LAUNCHER_SCHED=interleaved
 # Start launcher
 $PRUN $EXECUTABLE $CONTROL_FILE
 ```
+
+## County opening data variables
+fips = unique indentifier for each state and county
+CTYNAME = name of county, parish, borough, etc.
+POPESTIMATE2019 = population estimate from census 
+Reopening_date_true = day social distancing was/will be released in some way accoring to NYT and CNN
+    https://www.nytimes.com/interactive/2020/us/states-reopen-map-coronavirus.html
+    https://www.cnn.com/interactive/2020/us/states-reopen-coronavirus-trnd/
+Reopening_date_10day = false re-opening date 10 days in past from Today_date
+Reopening_date = the true reopening date or a 10-day window of time 
+Reop_diff_from_true_date = is the true reopening date different from the one used, 1=yes, 0=no
+Order_for_state_prior  = was a stay at home order in place prior to re-opening, 1=yes, 0=no
+Order_for_state_date  = date of stay at home order if it exists, NA otherwise
+Comment = any notes on if individual county reopening date differs from state
+Today_date = date of last update with COVID-19 case data, usually yesterday's date    
+Days_after_lift = days since re-opening or the 10-day window
+
