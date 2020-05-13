@@ -4,7 +4,7 @@
 library(ggplot2)
 library(gmodels) # needed for ci()
 library(scales) # needed for muted() in ggplot
-options(warn=-1) # suppress all the warnings from ci()
+#options(warn=-1) # suppress all the warnings from ci()
 
 ########################################################################################
 ########################### NEW FUNCTIONS 
@@ -83,7 +83,7 @@ plot_prob_R0_above_1_county_map = function(df, init_num_infected){
   num_county = length(reopen_today_cases_df$fips)
   county_prob_vect=rep(NA, num_county) 
   for(c in 1:num_county){ # loop over all the counties
-    if(reopen_today_cases_df$daily_cases.x < 2){ # most likely only 100 infected cases, but will need to discuss
+    if(reopen_today_cases_df$daily_cases.x[c] < 2){ # most likely only 100 infected cases, but will need to discuss
       # look up with subset
       temp=subset(prob_df_100, prob_df_100$tl == reopen_today_cases_df$Days_after_lift[c] & 
                     prob_df_100$delta == reopen_today_cases_df$delta_daily_cases[c])
@@ -98,7 +98,7 @@ plot_prob_R0_above_1_county_map = function(df, init_num_infected){
           county_prob_vect[c] = min(temp2$prob_R0_above1) # give min prob for those days out if delta negative
         } # end if delta is positive or negative
       } # end if value not found in table
-    }else if(reopen_today_cases_df$daily_cases.x >= 2 & reopen_today_cases_df$daily_cases.x < 11){ # most likely only 1000 infected cases
+    }else if(reopen_today_cases_df$daily_cases.x[c] >= 2 & reopen_today_cases_df$daily_cases.x[c] < 11){ # most likely only 1000 infected cases
       # look up with subset
       temp=subset(prob_df_1000, prob_df_1000$tl == reopen_today_cases_df$Days_after_lift[c] & 
                     prob_df_1000$delta == reopen_today_cases_df$delta_daily_cases[c])
@@ -106,7 +106,7 @@ plot_prob_R0_above_1_county_map = function(df, init_num_infected){
         county_prob_vect[c] = temp$prob_R0_above1
       }else{ # if the value is not found in table assign most likely probability from other values
         # subset of only the days since lever lift
-        temp2 = subset(prob_df, prob_df_1000$tl == reopen_today_cases_df$Days_after_lift[c])
+        temp2 = subset(prob_df_1000, prob_df_1000$tl == reopen_today_cases_df$Days_after_lift[c])
         if(reopen_today_cases_df$delta_daily_cases[c] > 0){
           county_prob_vect[c] = max(temp2$prob_R0_above1) # give max prob for those days out if delta is positive
         }else{
@@ -121,7 +121,7 @@ plot_prob_R0_above_1_county_map = function(df, init_num_infected){
         county_prob_vect[c] = temp$prob_R0_above1
       }else{ # if the value is not found in table assign most likely probability from other values
         # subset of only the days since lever lift
-        temp2 = subset(prob_df, prob_df_10000$tl == reopen_today_cases_df$Days_after_lift[c])
+        temp2 = subset(prob_df_10000, prob_df_10000$tl == reopen_today_cases_df$Days_after_lift[c])
         if(reopen_today_cases_df$delta_daily_cases[c] > 0){
           county_prob_vect[c] = max(temp2$prob_R0_above1) # give max prob for those days out if delta is positive
         }else{
